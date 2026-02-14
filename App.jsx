@@ -1,12 +1,13 @@
-import React, { useState, useEffect, useRef } from 'react';
-import Sidebar from './components/Sidebar';
-import ChatWindow from './components/ChatWindow';
-import { v4 as uuidv4 } from 'uuid';
+import React, { useState, useEffect, useRef } from "react";
+import Sidebar from "./components/Sidebar";
+import ChatWindow from "./components/ChatWindow";
+import { v4 as uuidv4 } from "uuid";
+import { GeminiService } from "./services/geminiservices";
 
 const App = () => {
   const [sessions, setSessions] = useState([]);
   const [activeSessionId, setActiveSessionId] = useState(null);
-  const [inputText, setInputText] = useState('');
+  const [inputText, setInputText] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [image, setImage] = useState(null);
 
@@ -14,20 +15,22 @@ const App = () => {
   const fileInputRef = useRef(null);
   const textareaRef = useRef(null);
 
+  const geminiService = new GeminiService();
+
   const activeSession = sessions.find(
     (session) => session.id === activeSessionId
   );
 
   useEffect(() => {
     if (messagesEndRef.current) {
-      messagesEndRef.current.scrollIntoView({ behavior: 'smooth' });
+      messagesEndRef.current.scrollIntoView({ behavior: "smooth" });
     }
   }, [activeSession?.messages]);
 
   const handleNewChat = () => {
     const newSession = {
       id: uuidv4(),
-      title: 'New Chat',
+      title: "New Chat",
       messages: [],
     };
 
@@ -47,7 +50,7 @@ const App = () => {
     reader.onloadend = () => {
       setImage({
         mimeType: file.type,
-        data: reader.result.split(',')[1],
+        data: reader.result.split(",")[1],
       });
     };
     reader.readAsDataURL(file);
@@ -60,9 +63,11 @@ const App = () => {
 
     const userMessage = {
       id: uuidv4(),
-      role: 'user',
-      content: text,
-      image,
+      role: "user",
+      parts: [
+        { text },
+        ...(image ? [{ inlineData: image }] : []),
+      ],
     };
 
     setSessions((prev) =>
@@ -73,15 +78,21 @@ const App = () => {
       )
     );
 
-    setInputText('');
+    setInputText("");
     setImage(null);
 
     try {
-      // 🔹 Replace this with your Gemini API call logic
+      const result = await geminiService.sendMessageStream(
+        activeSession.messages || [],
+        text,
+        image
+      );
+
       const aiMessage = {
         id: uuidv4(),
-        role: 'assistant',
-        content: 'AI response will appear here.',
+        role: "assistant",
+        parts: [{ text: result.text }],
+        groundingSources: result.groundingSources,
       };
 
       setSessions((prev) =>
@@ -94,8 +105,8 @@ const App = () => {
     } catch (error) {
       const errorMessage = {
         id: uuidv4(),
-        role: 'assistant',
-        content: 'Something went wrong.',
+        role: "assistant",
+        parts: [{ text: "Something went wrong." }],
       };
 
       setSessions((prev) =>
@@ -111,7 +122,7 @@ const App = () => {
   };
 
   const handleKeyDown = (e) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
+    if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
       handleSendMessage();
     }
@@ -121,9 +132,10 @@ const App = () => {
     <div className="app-container">
       <Sidebar
         sessions={sessions}
-        activeSessionId={activeSessionId}
+        currentSessionId={activeSessionId}
         onNewChat={handleNewChat}
         onSelectSession={handleSelectSession}
+        isOpen={true}
       />
 
       <ChatWindow
