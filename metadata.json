@@ -1,0 +1,7 @@
+{
+  "name": "Gemini Clone",
+  "description": "A feature-rich clone of the Gemini AI interface using React, Tailwind CSS, and the Google GenAI SDK.",
+  "requestFramePermissions": [
+    "camera"
+  ]
+}
